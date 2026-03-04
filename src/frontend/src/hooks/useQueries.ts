@@ -7,6 +7,7 @@ import type {
   TestAttempt,
 } from "../backend.d";
 import { useActor } from "./useActor";
+import { useInternetIdentity } from "./useInternetIdentity";
 
 // ── Students ──────────────────────────────────────────────
 
@@ -244,10 +245,15 @@ export function useMarkAllRead() {
 
 export function useIsAdmin() {
   const { actor, isFetching } = useActor();
+  const { identity } = useInternetIdentity();
+  // Use the principal as the key so the query always re-runs after login
+  const principalKey = identity?.getPrincipal().toString() ?? "anonymous";
   return useQuery<boolean>({
-    queryKey: ["isAdmin", actor ? "actor" : "noactor"],
+    queryKey: ["isAdmin", principalKey],
     queryFn: async () => {
       if (!actor) return false;
+      // Anonymous principal is never admin
+      if (principalKey === "anonymous") return false;
       try {
         return await actor.isCallerAdmin();
       } catch {
@@ -256,6 +262,7 @@ export function useIsAdmin() {
       }
     },
     enabled: !!actor && !isFetching,
+    staleTime: 0, // always re-check after identity changes
   });
 }
 

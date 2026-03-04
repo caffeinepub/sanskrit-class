@@ -13,35 +13,24 @@ import { useIsAdmin } from "../hooks/useQueries";
 
 export default function LandingPage() {
   const router = useRouter();
-  const {
-    login,
-    isLoggingIn,
-    isLoginSuccess,
-    isInitializing,
-    identity,
-    clear,
-  } = useInternetIdentity();
+  const { login, isLoggingIn, isInitializing, identity, clear } =
+    useInternetIdentity();
   const { data: isAdmin, isLoading: checkingAdmin } = useIsAdmin();
   const [notAdminError, setNotAdminError] = useState(false);
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (identity && isAdmin === true) {
+    if (identity && isAdmin === true && !checkingAdmin) {
       localStorage.setItem("isTeacher", "true");
       setNotAdminError(false);
       router.navigate({ to: "/teacher" });
-    } else if (
-      isAdmin === false &&
-      identity &&
-      isLoginSuccess &&
-      !checkingAdmin
-    ) {
+    } else if (identity && isAdmin === false && !checkingAdmin) {
       // Logged in but not admin -- show error and clear session
       localStorage.removeItem("isTeacher");
       setNotAdminError(true);
       clear();
     }
-  }, [identity, isAdmin, isLoginSuccess, checkingAdmin, router, clear]);
+  }, [identity, isAdmin, checkingAdmin, router, clear]);
 
   // Redirect if student session exists
   useEffect(() => {
