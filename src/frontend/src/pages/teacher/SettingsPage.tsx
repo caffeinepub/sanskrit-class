@@ -20,9 +20,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Check, Copy, Key, Loader2, RefreshCw, Settings } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Key,
+  Loader2,
+  RefreshCw,
+  Settings,
+  Sparkles,
+} from "lucide-react";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useGenerateInviteCode, useInviteCode } from "../../hooks/useQueries";
 
@@ -30,6 +38,14 @@ export default function SettingsPage() {
   const { data: code, isLoading } = useInviteCode();
   const generateCode = useGenerateInviteCode();
   const [copied, setCopied] = useState(false);
+
+  // Auto-generate a code if none exists yet
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally omit generateCode to avoid infinite loop
+  useEffect(() => {
+    if (!isLoading && code === "" && !generateCode.isPending) {
+      generateCode.mutateAsync().catch(() => {});
+    }
+  }, [isLoading, code]);
 
   const handleCopy = async () => {
     if (!code) return;
@@ -51,6 +67,9 @@ export default function SettingsPage() {
       toast.error("Failed to generate new code");
     }
   };
+
+  const isGenerating =
+    isLoading || generateCode.isPending || (code === "" && !isLoading);
 
   return (
     <div className="p-8">
@@ -89,20 +108,38 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>Current Code</Label>
-              {isLoading ? (
-                <Skeleton className="h-12 rounded-lg" />
+              {isGenerating ? (
+                <div className="space-y-2">
+                  <Skeleton
+                    className="h-12 rounded-lg"
+                    data-ocid="settings.loading_state"
+                  />
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    {generateCode.isPending
+                      ? "Generating your invite code…"
+                      : "Loading…"}
+                  </p>
+                </div>
               ) : (
-                <div className="flex gap-2">
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3 }}
+                  className="flex gap-2"
+                >
                   <Input
-                    data-ocid="settings.code_input"
+                    data-ocid="settings.input"
                     value={code ?? ""}
                     readOnly
-                    className="font-mono text-lg tracking-widest font-semibold text-center bg-muted"
+                    className="font-mono text-xl tracking-[0.3em] font-bold text-center bg-muted h-12"
                   />
                   <Button
                     variant="outline"
                     onClick={handleCopy}
-                    className="gap-2 flex-shrink-0"
+                    disabled={!code}
+                    data-ocid="settings.secondary_button"
+                    className="gap-2 flex-shrink-0 h-12"
                   >
                     {copied ? (
                       <Check className="w-4 h-4 text-green-600" />
@@ -111,7 +148,7 @@ export default function SettingsPage() {
                     )}
                     {copied ? "Copied!" : "Copy"}
                   </Button>
-                </div>
+                </motion.div>
               )}
               <p className="text-xs text-muted-foreground">
                 Maximum 10 characters — letters and numbers only.
@@ -124,43 +161,62 @@ export default function SettingsPage() {
                 will not be affected.
               </p>
 
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    data-ocid="settings.regenerate_button"
-                    disabled={generateCode.isPending}
-                    className="gap-2"
-                  >
-                    {generateCode.isPending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="w-4 h-4" />
-                    )}
-                    Regenerate Code
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent data-ocid="settings.dialog">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Regenerate Invite Code?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      The current code will be invalidated. Students who haven't
-                      joined yet will need the new code.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel data-ocid="settings.cancel_button">
-                      Cancel
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                      data-ocid="settings.confirm_button"
-                      onClick={handleRegenerate}
+              {!code && !isGenerating ? (
+                // Fallback manual generate button if auto-generate failed
+                <Button
+                  data-ocid="settings.primary_button"
+                  onClick={handleRegenerate}
+                  disabled={generateCode.isPending}
+                  className="gap-2"
+                >
+                  {generateCode.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                  Generate Invite Code
+                </Button>
+              ) : (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      data-ocid="settings.open_modal_button"
+                      disabled={generateCode.isPending || isGenerating}
+                      className="gap-2"
                     >
-                      Regenerate
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+                      {generateCode.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4" />
+                      )}
+                      Regenerate Code
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent data-ocid="settings.dialog">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        Regenerate Invite Code?
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        The current code will be invalidated. Students who
+                        haven't joined yet will need the new code.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel data-ocid="settings.cancel_button">
+                        Cancel
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        data-ocid="settings.confirm_button"
+                        onClick={handleRegenerate}
+                      >
+                        Regenerate
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
             </div>
           </CardContent>
         </Card>

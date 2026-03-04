@@ -28,7 +28,7 @@ function MaterialCard({
   index,
 }: {
   material: StudyMaterial;
-  storageClient: ReturnType<typeof useStorageClient>;
+  storageClient: import("../../utils/StorageClient").StorageClient | null;
   index: number;
 }) {
   const FileIcon = getFileIcon(material.fileName);
@@ -90,7 +90,7 @@ function MaterialCard({
 
 export default function StudentMaterialsPage() {
   const { data: materials, isLoading } = useStudyMaterials();
-  const storageClient = useStorageClient();
+  const { storageClient } = useStorageClient();
 
   return (
     <div className="p-8">

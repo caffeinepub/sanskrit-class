@@ -33,8 +33,8 @@ export function getUrlParameter(paramName: string): string | null {
 }
 
 /**
- * Stores a parameter in sessionStorage for persistence across navigation
- * Useful for maintaining state like admin tokens throughout the session
+ * Stores a parameter in both sessionStorage and localStorage for persistence
+ * across navigation and page reloads/tab reopens.
  *
  * @param key - The key to store the value under
  * @param value - The value to store
@@ -43,23 +43,60 @@ export function storeSessionParameter(key: string, value: string): void {
   try {
     sessionStorage.setItem(key, value);
   } catch (error) {
-    console.warn(`Failed to store session parameter ${key}:`, error);
+    console.warn(
+      `Failed to store session parameter ${key} in sessionStorage:`,
+      error,
+    );
+  }
+  try {
+    localStorage.setItem(key, value);
+  } catch (error) {
+    console.warn(
+      `Failed to store session parameter ${key} in localStorage:`,
+      error,
+    );
   }
 }
 
 /**
- * Retrieves a parameter from sessionStorage
+ * Retrieves a parameter from sessionStorage, falling back to localStorage
  *
  * @param key - The key to retrieve
  * @returns The stored value if found, null otherwise
  */
 export function getSessionParameter(key: string): string | null {
   try {
-    return sessionStorage.getItem(key);
+    const val = sessionStorage.getItem(key);
+    if (val !== null) return val;
   } catch (error) {
-    console.warn(`Failed to retrieve session parameter ${key}:`, error);
+    console.warn(
+      `Failed to retrieve session parameter ${key} from sessionStorage:`,
+      error,
+    );
+  }
+  try {
+    return localStorage.getItem(key);
+  } catch (error) {
+    console.warn(
+      `Failed to retrieve session parameter ${key} from localStorage:`,
+      error,
+    );
     return null;
   }
+}
+
+/**
+ * Removes a parameter from both sessionStorage and localStorage
+ *
+ * @param key - The key to remove
+ */
+export function clearStoredParameter(key: string): void {
+  try {
+    sessionStorage.removeItem(key);
+  } catch (_) {}
+  try {
+    localStorage.removeItem(key);
+  } catch (_) {}
 }
 
 /**
@@ -89,16 +126,17 @@ export function getPersistedUrlParameter(
 }
 
 /**
- * Removes a parameter from sessionStorage
+ * Removes a parameter from sessionStorage and localStorage
  *
  * @param key - The key to remove
  */
 export function clearSessionParameter(key: string): void {
   try {
     sessionStorage.removeItem(key);
-  } catch (error) {
-    console.warn(`Failed to clear session parameter ${key}:`, error);
-  }
+  } catch (_) {}
+  try {
+    localStorage.removeItem(key);
+  } catch (_) {}
 }
 
 /**
@@ -197,7 +235,7 @@ export function getSecretFromHash(paramName: string): string | null {
 }
 
 /**
- * Gets a secret parameter with fallback chain: hash -> sessionStorage
+ * Gets a secret parameter with fallback chain: hash -> sessionStorage -> localStorage
  * This is the recommended way to handle sensitive parameters like admin tokens
  *
  * Security benefits over regular URL params:
@@ -211,4 +249,12 @@ export function getSecretFromHash(paramName: string): string | null {
  */
 export function getSecretParameter(paramName: string): string | null {
   return getSecretFromHash(paramName);
+}
+
+/**
+ * Clears a secret parameter from all storage (alias for clearSessionParameter).
+ * Call on logout to ensure the token is fully removed.
+ */
+export function clearSecretParameter(paramName: string): void {
+  clearSessionParameter(paramName);
 }

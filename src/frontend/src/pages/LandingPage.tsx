@@ -36,7 +36,7 @@ export default function LandingPage() {
     }
   }, [identity, isLoggingIn]);
 
-  // After login succeeds (identity appears), check if admin token is present
+  // After login succeeds OR identity is restored from storage, check admin token
   useEffect(() => {
     if (!identity) return;
     if (!loginAttemptedRef.current) return;
@@ -60,7 +60,8 @@ export default function LandingPage() {
     }
   }, [identity, router, queryClient, clear]);
 
-  // Handle "already authenticated" error — stale session present, treat as login
+  // Handle "already authenticated" error — stale session present but login() was called
+  // Treat it as a valid login: mark attempted and let the identity effect handle redirect
   useEffect(() => {
     if (isLoginError && identity && !loginAttemptedRef.current) {
       loginAttemptedRef.current = true;
@@ -80,7 +81,7 @@ export default function LandingPage() {
     setLoginError(null);
 
     if (identity) {
-      // Identity already present — re-check token without reopening popup
+      // Identity already present (stored session) — check token directly without popup
       loginAttemptedRef.current = true;
       const token = getSecretParameter("caffeineAdminToken");
       if (token) {
@@ -91,8 +92,11 @@ export default function LandingPage() {
         setLoginError(
           "Teacher access requires the special admin link. Please open the teacher link provided to you.",
         );
+        loginAttemptedRef.current = false;
       }
     } else {
+      // No identity yet — open Internet Identity popup
+      loginAttemptedRef.current = true;
       login();
     }
   };

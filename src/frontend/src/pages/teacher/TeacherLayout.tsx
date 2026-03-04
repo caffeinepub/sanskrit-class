@@ -42,8 +42,13 @@ export default function TeacherLayout() {
   }, [identity, router]);
 
   const handleLogout = () => {
-    queryClient.removeQueries({ queryKey: ["isAdmin"] });
+    queryClient.clear();
     localStorage.removeItem("isTeacher");
+    // NOTE: Do NOT clear caffeineAdminToken — useActor.ts needs it to
+    // initialize the backend actor on every page load. Clearing it causes
+    // useActor to call _initializeAccessControlWithSecret("") which traps,
+    // leaving storageClient permanently null ("Connecting…" on upload buttons).
+    // The token is not a user credential — it's a platform init secret.
     clear();
     router.navigate({ to: "/" });
   };

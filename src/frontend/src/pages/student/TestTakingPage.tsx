@@ -52,7 +52,7 @@ export default function TestTakingPage() {
   const testId = BigInt(params.testId);
   const router = useRouter();
   const { actor } = useActor();
-  const storageClient = useStorageClient();
+  const { storageClient } = useStorageClient();
   const email = localStorage.getItem("studentEmail") ?? "";
 
   const { data: tests } = useTests();

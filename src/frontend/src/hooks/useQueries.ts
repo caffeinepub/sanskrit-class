@@ -271,13 +271,16 @@ export function useIsAdmin() {
 
 export function useInviteCode() {
   const { actor, isFetching } = useActor();
+  const { identity } = useInternetIdentity();
+  const principalKey = identity?.getPrincipal().toString() ?? "anonymous";
   return useQuery<string>({
-    queryKey: ["inviteCode"],
+    queryKey: ["inviteCode", principalKey],
     queryFn: async () => {
       if (!actor) return "";
       return actor.getInviteCode();
     },
-    enabled: !!actor && !isFetching,
+    enabled: !!actor && !isFetching && principalKey !== "anonymous",
+    staleTime: 0,
   });
 }
 

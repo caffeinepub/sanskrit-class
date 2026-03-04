@@ -72,7 +72,7 @@ function AttemptsPanel({
   storageClient,
 }: {
   testId: bigint;
-  storageClient: ReturnType<typeof useStorageClient>;
+  storageClient: import("../../utils/StorageClient").StorageClient | null;
 }) {
   const { data: attempts, isLoading } = useTestAttempts(testId);
   const assignMarks = useAssignMarks();
@@ -225,7 +225,7 @@ function TestCard({
 }: {
   test: Test;
   onDelete: (id: bigint) => void;
-  storageClient: ReturnType<typeof useStorageClient>;
+  storageClient: import("../../utils/StorageClient").StorageClient | null;
   index: number;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -337,7 +337,7 @@ export default function TestsPage() {
   const { data: tests, isLoading } = useTests();
   const createTest = useCreateTest();
   const deleteTest = useDeleteTest();
-  const storageClient = useStorageClient();
+  const { storageClient } = useStorageClient();
   const { identity } = useInternetIdentity();
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -588,13 +588,22 @@ export default function TestsPage() {
                     type="submit"
                     data-ocid="tests.submit_button"
                     disabled={
-                      !file || !title.trim() || !startDateTime || uploading
+                      !file ||
+                      !title.trim() ||
+                      !startDateTime ||
+                      uploading ||
+                      !storageClient
                     }
                   >
                     {uploading ? (
                       <>
                         <Loader2 className="mr-2 w-4 h-4 animate-spin" />
                         Creating…
+                      </>
+                    ) : !storageClient ? (
+                      <>
+                        <Loader2 className="mr-2 w-4 h-4 animate-spin" />
+                        Connecting…
                       </>
                     ) : (
                       "Create Test"

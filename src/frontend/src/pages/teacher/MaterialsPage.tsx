@@ -68,7 +68,7 @@ function MaterialCard({
 }: {
   material: StudyMaterial;
   onDelete: (id: bigint) => void;
-  storageClient: ReturnType<typeof useStorageClient>;
+  storageClient: import("../../utils/StorageClient").StorageClient | null;
   index: number;
 }) {
   const FileIcon = getFileIcon(material.fileName);
@@ -160,7 +160,7 @@ export default function MaterialsPage() {
   const { data: materials, isLoading } = useStudyMaterials();
   const addMaterial = useAddStudyMaterial();
   const deleteMaterial = useDeleteStudyMaterial();
-  const storageClient = useStorageClient();
+  const { storageClient } = useStorageClient();
 
   const [uploadOpen, setUploadOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -180,7 +180,13 @@ export default function MaterialsPage() {
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file || !title.trim() || !storageClient) return;
+    if (!file || !title.trim()) return;
+    if (!storageClient) {
+      toast.error(
+        "Storage is not ready yet. Please wait a moment and try again.",
+      );
+      return;
+    }
 
     setUploading(true);
     setUploadProgress(0);
@@ -352,6 +358,11 @@ export default function MaterialsPage() {
                       <>
                         <Loader2 className="mr-2 w-4 h-4 animate-spin" />
                         Uploading…
+                      </>
+                    ) : !storageClient ? (
+                      <>
+                        <Loader2 className="mr-2 w-4 h-4 animate-spin" />
+                        Connecting…
                       </>
                     ) : (
                       "Upload"
