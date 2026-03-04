@@ -2,27 +2,32 @@
 
 ## Current State
 
-The app has a teacher portal (Tests page) where the teacher can create tests by uploading a question paper (PDF/image) and setting a title, start time, and duration. The upload flow uses a `StorageClient` that:
-1. Calls `_caffeineStorageCreateCertificate` on the backend actor to get an upload certificate
-2. Uses the certificate to upload file chunks to the storage gateway
+Full-stack class management app with:
+- Teacher login via Internet Identity with admin role check
+- Student join via invite code + email + display name
+- Study materials upload/view
+- Test creation with PDF question paper, start time, duration
+- Tab-switch detection during tests
+- Answer paper submission
+- Marks assignment by teacher
+- Notifications for students when tests are uploaded
 
-The `useStorageClient` hook creates a new `StorageClient` whenever `identity` changes, but is **not** tied to actor readiness. The `useActor` hook calls `_initializeAccessControlWithSecret` after login before the actor is considered ready — but the `storageClient` can be used before this initialization completes, causing the certificate call to fail with a permissions/access error.
-
-Additionally, in `TestsPage.tsx`, the `handleCreate` function wraps the entire upload+create flow but the error messages may not surface clearly enough to diagnose what's failing.
+The teacher login flow is broken: `isCallerAdmin()` on the backend calls `getUserRole()` which traps (throws a runtime error) when the caller's principal is not yet in the roles map. This happens when `isAdmin` is checked before or concurrently with `_initializeAccessControlWithSecret`. The trap is caught by the frontend and interpreted as `false`, showing "This identity is not registered as a teacher."
 
 ## Requested Changes (Diff)
 
 ### Add
-- A `useActorReady` export from `useActor.ts` (or inline check) so the `useStorageClient` hook can verify the actor is fully initialized before allowing uploads
+- Nothing new
 
 ### Modify
-- `useStorageClient.ts`: Gate the returned `StorageClient` on actor readiness (not just identity presence). Return `null` until the actor is both present and not fetching, so `storageClient` is only non-null when safe to use.
-- `TestsPage.tsx`: Improve error surfacing — show the actual caught error message in toast so debugging is easier. Also disable the submit button more clearly when the actor/storage is not yet ready.
+- `access-control.mo`: Fix `isAdmin` to return `false` gracefully when user is not in the roles map, instead of calling `getUserRole` which traps on unregistered principals
+- `LandingPage.tsx`: After login, re-query isAdmin with a small retry delay to ensure `_initializeAccessControlWithSecret` has had time to complete before the admin check runs
 
 ### Remove
-- Nothing removed
+- Nothing
 
 ## Implementation Plan
 
-1. Update `useStorageClient.ts` to accept (or use) the `isFetching` state from `useActor` so it returns `null` while the actor is still initializing.
-2. Update `TestsPage.tsx` to show the actual error message from caught exceptions in the toast, and improve the disabled state logic.
+1. Regenerate backend with fixed `isAdmin` in access-control.mo -- it should use a direct map lookup returning `false` for unregistered principals instead of delegating to `getUserRole` which traps
+2. Update `LandingPage.tsx` to add a small retry/delay mechanism: after login success, wait briefly then refetch the isAdmin query before making the redirect/error decision
+3. Also ensure `useIsAdmin` in useQueries.ts has `retry: 2` and `retryDelay: 1000` so transient traps during initialization don't permanently return false

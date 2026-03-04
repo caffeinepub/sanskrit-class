@@ -62,7 +62,7 @@ function NotificationsPanel({ email }: { email: string }) {
           variant="ghost"
           size="icon"
           data-ocid="notifications.bell_button"
-          className="relative text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+          className="relative text-white hover:text-white hover:bg-sidebar-accent/60"
         >
           <Bell className="w-4 h-4" />
           {count > 0 && (
@@ -182,10 +182,10 @@ export default function StudentLayout() {
               <GraduationCap className="w-5 h-5 text-sidebar-primary-foreground" />
             </div>
             <div>
-              <p className="font-display font-semibold text-sidebar-foreground text-sm leading-tight">
+              <p className="font-display font-semibold text-white text-sm leading-tight">
                 Sanskrit Class
               </p>
-              <p className="text-xs text-sidebar-foreground/50 truncate max-w-[120px]">
+              <p className="text-xs text-white/90 truncate max-w-[120px]">
                 {studentName}
               </p>
             </div>
@@ -207,8 +207,8 @@ export default function StudentLayout() {
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
                   isActive
-                    ? "bg-sidebar-accent text-sidebar-foreground sidebar-item-active"
-                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+                    ? "bg-sidebar-accent text-white sidebar-item-active"
+                    : "text-white hover:bg-sidebar-accent/60 hover:text-white",
                 )}
               >
                 <item.icon className="w-4 h-4 flex-shrink-0" />
@@ -230,7 +230,7 @@ export default function StudentLayout() {
             variant="ghost"
             size="sm"
             onClick={handleLogout}
-            className="flex-1 justify-start gap-2 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/60"
+            className="flex-1 justify-start gap-2 text-white hover:text-white hover:bg-sidebar-accent/60"
           >
             <LogOut className="w-4 h-4" />
             Logout

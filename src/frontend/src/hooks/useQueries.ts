@@ -257,12 +257,15 @@ export function useIsAdmin() {
       try {
         return await actor.isCallerAdmin();
       } catch {
-        // Backend may trap if the principal is not yet registered
-        return false;
+        // Backend may trap if the principal is not yet registered during init.
+        // Throwing here lets React Query retry automatically before giving up.
+        throw new Error("Admin check failed — principal not yet registered");
       }
     },
     enabled: !!actor && !isFetching,
     staleTime: 0, // always re-check after identity changes
+    retry: 3,
+    retryDelay: 1500,
   });
 }
 

@@ -7,30 +7,77 @@ import {
   Users,
 } from "lucide-react";
 import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
 import { useIsAdmin } from "../hooks/useQueries";
 
 export default function LandingPage() {
   const router = useRouter();
-  const { login, isLoggingIn, isInitializing, identity, clear } =
-    useInternetIdentity();
-  const { data: isAdmin, isLoading: checkingAdmin } = useIsAdmin();
+  const {
+    login,
+    isLoggingIn,
+    isInitializing,
+    identity,
+    clear,
+    isLoginSuccess,
+  } = useInternetIdentity();
+  const {
+    data: isAdmin,
+    isLoading: checkingAdmin,
+    isFetching: adminFetching,
+  } = useIsAdmin();
   const [notAdminError, setNotAdminError] = useState(false);
+  // Track whether a login was actively attempted in this session so we don't
+  // act on stale cached isAdmin=false values left over from a previous logout.
+  const loginAttemptedRef = useRef(false);
+
+  // Mark that a login attempt is in flight as soon as isLoggingIn goes true.
+  useEffect(() => {
+    if (isLoggingIn) {
+      loginAttemptedRef.current = true;
+    }
+  }, [isLoggingIn]);
+
+  // Reset the flag whenever the user clears their session (logs out) so the
+  // next visit to this page starts with a clean slate.
+  useEffect(() => {
+    if (!identity && !isLoggingIn) {
+      loginAttemptedRef.current = false;
+    }
+  }, [identity, isLoggingIn]);
 
   // Redirect if already authenticated
   useEffect(() => {
     if (identity && isAdmin === true && !checkingAdmin) {
       localStorage.setItem("isTeacher", "true");
       setNotAdminError(false);
+      loginAttemptedRef.current = false;
       router.navigate({ to: "/teacher" });
-    } else if (identity && isAdmin === false && !checkingAdmin) {
+    } else if (
+      identity &&
+      isAdmin === false &&
+      !checkingAdmin &&
+      // Wait for all retries to finish before declaring not-admin.
+      // adminFetching stays true while React Query is retrying the query.
+      !adminFetching &&
+      // Only reject + clear when the user actively just logged in, not on
+      // page load with a stale cached query result after a normal logout.
+      isLoginSuccess
+    ) {
       // Logged in but not admin -- show error and clear session
       localStorage.removeItem("isTeacher");
       setNotAdminError(true);
       clear();
     }
-  }, [identity, isAdmin, checkingAdmin, router, clear]);
+  }, [
+    identity,
+    isAdmin,
+    checkingAdmin,
+    adminFetching,
+    router,
+    clear,
+    isLoginSuccess,
+  ]);
 
   // Redirect if student session exists
   useEffect(() => {
@@ -50,7 +97,9 @@ export default function LandingPage() {
   };
 
   const isCheckingAuth =
-    isInitializing || isLoggingIn || (identity && checkingAdmin);
+    isInitializing ||
+    isLoggingIn ||
+    (identity && (checkingAdmin || adminFetching));
 
   const features = [
     {
