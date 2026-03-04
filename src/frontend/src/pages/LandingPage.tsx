@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "@tanstack/react-router";
 import {
   AlertCircle,
@@ -9,75 +10,63 @@ import {
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { useInternetIdentity } from "../hooks/useInternetIdentity";
-import { useIsAdmin } from "../hooks/useQueries";
+import { getSecretParameter } from "../utils/urlParams";
 
 export default function LandingPage() {
   const router = useRouter();
-  const {
-    login,
-    isLoggingIn,
-    isInitializing,
-    identity,
-    clear,
-    isLoginSuccess,
-  } = useInternetIdentity();
-  const {
-    data: isAdmin,
-    isLoading: checkingAdmin,
-    isFetching: adminFetching,
-  } = useIsAdmin();
-  const [notAdminError, setNotAdminError] = useState(false);
-  // Track whether a login was actively attempted in this session so we don't
-  // act on stale cached isAdmin=false values left over from a previous logout.
+  const queryClient = useQueryClient();
+  const { login, isLoggingIn, isLoginError, identity, clear } =
+    useInternetIdentity();
+
+  const [loginError, setLoginError] = useState<string | null>(null);
   const loginAttemptedRef = useRef(false);
 
-  // Mark that a login attempt is in flight as soon as isLoggingIn goes true.
+  // Mark that a login attempt is in flight
   useEffect(() => {
     if (isLoggingIn) {
       loginAttemptedRef.current = true;
+      setLoginError(null);
     }
   }, [isLoggingIn]);
 
-  // Reset the flag whenever the user clears their session (logs out) so the
-  // next visit to this page starts with a clean slate.
+  // Reset the flag on logout
   useEffect(() => {
     if (!identity && !isLoggingIn) {
       loginAttemptedRef.current = false;
     }
   }, [identity, isLoggingIn]);
 
-  // Redirect if already authenticated
+  // After login succeeds (identity appears), check if admin token is present
   useEffect(() => {
-    if (identity && isAdmin === true && !checkingAdmin) {
+    if (!identity) return;
+    if (!loginAttemptedRef.current) return;
+
+    const token = getSecretParameter("caffeineAdminToken");
+    if (token) {
+      // Has the admin token → this is the teacher
       localStorage.setItem("isTeacher", "true");
-      setNotAdminError(false);
+      setLoginError(null);
       loginAttemptedRef.current = false;
+      queryClient.removeQueries({ queryKey: ["isAdmin"] });
       router.navigate({ to: "/teacher" });
-    } else if (
-      identity &&
-      isAdmin === false &&
-      !checkingAdmin &&
-      // Wait for all retries to finish before declaring not-admin.
-      // adminFetching stays true while React Query is retrying the query.
-      !adminFetching &&
-      // Only reject + clear when the user actively just logged in, not on
-      // page load with a stale cached query result after a normal logout.
-      isLoginSuccess
-    ) {
-      // Logged in but not admin -- show error and clear session
+    } else {
+      // No token → not the teacher
       localStorage.removeItem("isTeacher");
-      setNotAdminError(true);
+      setLoginError(
+        "Teacher access requires the special admin link. Please open the teacher link provided to you.",
+      );
+      loginAttemptedRef.current = false;
       clear();
     }
-  }, [
-    identity,
-    isAdmin,
-    checkingAdmin,
-    adminFetching,
-    router,
-    clear,
-    isLoginSuccess,
-  ]);
+  }, [identity, router, queryClient, clear]);
+
+  // Handle "already authenticated" error — stale session present, treat as login
+  useEffect(() => {
+    if (isLoginError && identity && !loginAttemptedRef.current) {
+      loginAttemptedRef.current = true;
+      setLoginError(null);
+    }
+  }, [isLoginError, identity]);
 
   // Redirect if student session exists
   useEffect(() => {
@@ -88,18 +77,29 @@ export default function LandingPage() {
   }, [identity, router]);
 
   const handleTeacherLogin = () => {
-    setNotAdminError(false);
-    login();
+    setLoginError(null);
+
+    if (identity) {
+      // Identity already present — re-check token without reopening popup
+      loginAttemptedRef.current = true;
+      const token = getSecretParameter("caffeineAdminToken");
+      if (token) {
+        localStorage.setItem("isTeacher", "true");
+        queryClient.removeQueries({ queryKey: ["isAdmin"] });
+        router.navigate({ to: "/teacher" });
+      } else {
+        setLoginError(
+          "Teacher access requires the special admin link. Please open the teacher link provided to you.",
+        );
+      }
+    } else {
+      login();
+    }
   };
 
   const handleStudentJoin = () => {
     router.navigate({ to: "/join" });
   };
-
-  const isCheckingAuth =
-    isInitializing ||
-    isLoggingIn ||
-    (identity && (checkingAdmin || adminFetching));
 
   const features = [
     {
@@ -165,7 +165,7 @@ export default function LandingPage() {
             transition={{ delay: 0.4, duration: 0.5 }}
             className="flex flex-col gap-3 max-w-md mx-auto mb-16"
           >
-            {notAdminError && (
+            {loginError && (
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -173,10 +173,7 @@ export default function LandingPage() {
                 data-ocid="landing.not_admin_error_state"
               >
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                <span>
-                  This identity is not registered as a teacher. Please log in
-                  with the correct teacher identity.
-                </span>
+                <span>{loginError}</span>
               </motion.div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -184,10 +181,10 @@ export default function LandingPage() {
                 type="button"
                 data-ocid="landing.teacher_button"
                 onClick={handleTeacherLogin}
-                disabled={isCheckingAuth || isLoggingIn}
+                disabled={isLoggingIn}
                 className="group relative flex flex-col items-center gap-3 p-6 rounded-2xl bg-primary text-primary-foreground shadow-card hover:shadow-card-hover transition-all duration-300 hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {isCheckingAuth || isLoggingIn ? (
+                {isLoggingIn ? (
                   <Loader2 className="w-8 h-8 animate-spin" />
                 ) : (
                   <GraduationCap className="w-8 h-8" />

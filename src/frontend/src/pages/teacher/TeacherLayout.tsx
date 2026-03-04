@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { useEffect } from "react";
 import { useInternetIdentity } from "../../hooks/useInternetIdentity";
-import { useIsAdmin } from "../../hooks/useQueries";
 
 const navItems = [
   { to: "/teacher", label: "Dashboard", icon: LayoutDashboard, exact: true },
@@ -32,28 +31,17 @@ export default function TeacherLayout() {
   const router = useRouter();
   const routerState = useRouterState();
   const { clear, identity } = useInternetIdentity();
-  const { data: isAdmin, isLoading } = useIsAdmin();
   const queryClient = useQueryClient();
 
-  // Redirect if not admin once we know
+  // Redirect to landing if identity is gone and teacher flag is cleared
   useEffect(() => {
-    if (!isLoading && isAdmin === false) {
-      localStorage.removeItem("isTeacher");
+    const isTeacher = localStorage.getItem("isTeacher") === "true";
+    if (!identity && !isTeacher) {
       router.navigate({ to: "/" });
     }
-  }, [isAdmin, isLoading, router]);
-
-  // Redirect if no identity
-  useEffect(() => {
-    if (!identity && !isLoading) {
-      localStorage.removeItem("isTeacher");
-      router.navigate({ to: "/" });
-    }
-  }, [identity, isLoading, router]);
+  }, [identity, router]);
 
   const handleLogout = () => {
-    // Remove the isAdmin cache BEFORE navigating so LandingPage never sees a
-    // stale false result that would immediately re-trigger clear() on mount.
     queryClient.removeQueries({ queryKey: ["isAdmin"] });
     localStorage.removeItem("isTeacher");
     clear();
@@ -116,6 +104,7 @@ export default function TeacherLayout() {
             variant="ghost"
             size="sm"
             onClick={handleLogout}
+            data-ocid="nav.logout_button"
             className="w-full justify-start gap-3 text-white hover:text-white hover:bg-sidebar-accent"
           >
             <LogOut className="w-4 h-4" />

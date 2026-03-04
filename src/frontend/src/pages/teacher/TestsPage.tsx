@@ -48,7 +48,6 @@ import { AnimatePresence, motion } from "motion/react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Test, TestAttempt } from "../../backend.d";
-import { useActor } from "../../hooks/useActor";
 import { useInternetIdentity } from "../../hooks/useInternetIdentity";
 import {
   useAssignMarks,
@@ -340,7 +339,6 @@ export default function TestsPage() {
   const deleteTest = useDeleteTest();
   const storageClient = useStorageClient();
   const { identity } = useInternetIdentity();
-  const { isFetching: actorLoading } = useActor();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -365,7 +363,7 @@ export default function TestsPage() {
 
     if (!storageClient) {
       toast.error(
-        "Storage service is not available. Please refresh the page and try again.",
+        "Still connecting to storage. Please wait a moment and try again.",
       );
       return;
     }
@@ -590,23 +588,13 @@ export default function TestsPage() {
                     type="submit"
                     data-ocid="tests.submit_button"
                     disabled={
-                      !file ||
-                      !title.trim() ||
-                      !startDateTime ||
-                      uploading ||
-                      actorLoading ||
-                      !storageClient
+                      !file || !title.trim() || !startDateTime || uploading
                     }
                   >
                     {uploading ? (
                       <>
                         <Loader2 className="mr-2 w-4 h-4 animate-spin" />
                         Creating…
-                      </>
-                    ) : actorLoading ? (
-                      <>
-                        <Loader2 className="mr-2 w-4 h-4 animate-spin" />
-                        Initializing…
                       </>
                     ) : (
                       "Create Test"

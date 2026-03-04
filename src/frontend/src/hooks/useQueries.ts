@@ -254,18 +254,16 @@ export function useIsAdmin() {
       if (!actor) return false;
       // Anonymous principal is never admin
       if (principalKey === "anonymous") return false;
-      try {
-        return await actor.isCallerAdmin();
-      } catch {
-        // Backend may trap if the principal is not yet registered during init.
-        // Throwing here lets React Query retry automatically before giving up.
-        throw new Error("Admin check failed — principal not yet registered");
-      }
+      // _initializeAccessControlWithSecret is awaited before the actor resolves,
+      // so by the time this runs the backend should already be initialised.
+      // We still retry a few times to handle ICP replica read lag.
+      return await actor.isCallerAdmin();
     },
     enabled: !!actor && !isFetching,
     staleTime: 0, // always re-check after identity changes
+    // ICP query replicas may lag by ~1-2s after an update call commits.
     retry: 3,
-    retryDelay: 1500,
+    retryDelay: (attempt) => [2000, 4000, 6000][attempt] ?? 6000,
   });
 }
 
