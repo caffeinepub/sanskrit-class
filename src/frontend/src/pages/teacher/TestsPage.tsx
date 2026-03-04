@@ -48,6 +48,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Test, TestAttempt } from "../../backend.d";
+import { useActor } from "../../hooks/useActor";
 import { useInternetIdentity } from "../../hooks/useInternetIdentity";
 import {
   useAssignMarks,
@@ -339,6 +340,7 @@ export default function TestsPage() {
   const deleteTest = useDeleteTest();
   const storageClient = useStorageClient();
   const { identity } = useInternetIdentity();
+  const { isFetching: actorLoading } = useActor();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [title, setTitle] = useState("");
@@ -392,18 +394,26 @@ export default function TestsPage() {
         hash = result.hash;
       } catch (uploadErr) {
         console.error("Upload error:", uploadErr);
-        toast.error(
-          "Failed to upload question paper. Please make sure you are logged in and try again.",
-        );
+        const msg =
+          uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
+        toast.error(`Failed to upload question paper: ${msg}`);
         return;
       }
 
-      await createTest.mutateAsync({
-        title: title.trim(),
-        questionBlobId: hash,
-        startTime: BigInt(startTimeMs * 1_000_000),
-        durationMinutes: BigInt(durationMins),
-      });
+      try {
+        await createTest.mutateAsync({
+          title: title.trim(),
+          questionBlobId: hash,
+          startTime: BigInt(startTimeMs * 1_000_000),
+          durationMinutes: BigInt(durationMins),
+        });
+      } catch (createErr) {
+        console.error("Create test error:", createErr);
+        const msg =
+          createErr instanceof Error ? createErr.message : String(createErr);
+        toast.error(`Failed to create test: ${msg}`);
+        return;
+      }
 
       toast.success("Test created! Students will be notified.");
       setCreateOpen(false);
@@ -413,8 +423,9 @@ export default function TestsPage() {
       setFile(null);
       setUploadProgress(0);
     } catch (err) {
-      console.error("Create test error:", err);
-      toast.error("Failed to create test. Please try again.");
+      console.error("Unexpected error:", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Unexpected error: ${msg}`);
     } finally {
       setUploading(false);
     }
@@ -583,6 +594,7 @@ export default function TestsPage() {
                       !title.trim() ||
                       !startDateTime ||
                       uploading ||
+                      actorLoading ||
                       !storageClient
                     }
                   >
@@ -590,6 +602,11 @@ export default function TestsPage() {
                       <>
                         <Loader2 className="mr-2 w-4 h-4 animate-spin" />
                         Creating…
+                      </>
+                    ) : actorLoading ? (
+                      <>
+                        <Loader2 className="mr-2 w-4 h-4 animate-spin" />
+                        Initializing…
                       </>
                     ) : (
                       "Create Test"
